@@ -25,7 +25,7 @@ func MakeGetPaymentsEndpoint(svc BankingService) endpoint.Endpoint {
 func MakeSendPaymentEndpoint(svc BankingService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(SendPaymentRequest)
-		payment, err := svc.SendPayment(ctx, req)
-		return payment, err
+		err := svc.SendPayment(ctx, req)
+		return nil, err
 	}
 }

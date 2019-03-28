@@ -3,66 +3,38 @@ package banking
 import (
 	"context"
 
-	"github.com/shopspring/decimal"
+	"github.com/pkg/errors"
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
+	"github.com/twonegatives/coinsph_challenge/pkg/storage"
 )
 
 type BankingService interface {
 	GetAccountsList(ctx context.Context, req GetAccountsRequest) ([]entities.Account, error)
 	GetPaymentsList(ctx context.Context, req GetPaymentsRequest) ([]entities.Payment, error)
-	SendPayment(ctx context.Context, req SendPaymentRequest) (entities.Payment, error)
+	SendPayment(ctx context.Context, req SendPaymentRequest) error
 }
 
 type Service struct {
+	store storage.Storage
 }
 
-func NewService() *Service {
-	return &Service{}
-}
-
-func (svc *Service) GetAccountsList(ctx context.Context, req GetAccountsRequest) ([]entities.Account, error) {
-	accounts := []entities.Account{
-		{
-			ID:       "bob123",
-			Balance:  decimal.NewFromFloat(100.0),
-			Currency: entities.USD,
-		},
-		{
-			ID:       "alice456",
-			Balance:  decimal.NewFromFloat(0.01),
-			Currency: entities.USD,
-		},
+func NewService(s storage.Storage) *Service {
+	return &Service{
+		store: s,
 	}
-
-	return accounts, nil
 }
 
-func (svc *Service) GetPaymentsList(ctx context.Context, req GetPaymentsRequest) ([]entities.Payment, error) {
-	payments := []entities.Payment{
-		{
-			Account:   "bob123",
-			Amount:    decimal.NewFromFloat(100.0),
-			ToAccount: "alice456",
-			Direction: entities.Outgoing,
-		},
-		{
-			Account:     "alice456",
-			Amount:      decimal.NewFromFloat(100.0),
-			FromAccount: "bob123",
-			Direction:   entities.Incoming,
-		},
-	}
-
-	return payments, nil
+func (svc *Service) GetAccountsList(ctx context.Context, _req GetAccountsRequest) ([]entities.Account, error) {
+	accounts, err := svc.store.GetAccountsList(ctx)
+	return accounts, errors.Wrap(err, "failed to fetch accounts list from database")
 }
 
-func (svc *Service) SendPayment(ctx context.Context, req SendPaymentRequest) (entities.Payment, error) {
-	payment := entities.Payment{
-		Account:   req.From.ID,
-		ToAccount: req.To.ID,
-		Direction: entities.Outgoing,
-		Amount:    req.Amount,
-	}
+func (svc *Service) GetPaymentsList(ctx context.Context, _req GetPaymentsRequest) ([]entities.Payment, error) {
+	payments, err := svc.store.GetPaymentsList(ctx)
+	return payments, errors.Wrap(err, "failed to fetch payments list from database")
+}
 
-	return payment, nil
+func (svc *Service) SendPayment(ctx context.Context, _req SendPaymentRequest) error {
+	err := svc.store.SendPayment(ctx, entities.Account{}, entities.Account{})
+	return errors.Wrap(err, "failed to save new payment")
 }
