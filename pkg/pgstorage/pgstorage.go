@@ -45,15 +45,15 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
     SELECT
 			owners.id,
       owners.name,
-      participants.id,
-      participants.name,
+      counterparties.id,
+      counterparties.name,
       transactions.id,
       transactions.created_at,
       direction,
       amount
 		FROM payments
 		INNER JOIN accounts AS owners ON payments.account_id = owners.id
-		INNER JOIN accounts AS participants ON payments.participant_id = participants.id
+		INNER JOIN accounts AS counterparties ON payments.counterparty_id = counterparties.id
 		INNER JOIN transactions ON payments.transaction_id = transactions.id
 	`
 	rows, err := s.DB.QueryContext(ctx, query)
@@ -69,8 +69,8 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 		err := rows.Scan(
 			&payment.Account.ID,
 			&payment.Account.Name,
-			&payment.Participant.ID,
-			&payment.Participant.Name,
+			&payment.Counterparty.ID,
+			&payment.Counterparty.Name,
 			&payment.Transaction.ID,
 			&payment.Transaction.CreatedAt,
 			&payment.Direction,
@@ -115,7 +115,7 @@ func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to e
 		INSERT INTO payments(
 			transaction_id,
 			account_id,
-			participant_id,
+			counterparty_id,
 			direction,
 			amount
 		) VALUES ($1, $2, $3, $4, $5)

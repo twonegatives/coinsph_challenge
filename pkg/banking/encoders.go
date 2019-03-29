@@ -25,9 +25,9 @@ func (e *paymentsJSONEncoder) encode(payments []entities.Payment) ([]byte, error
 		}
 
 		if payment.Direction == entities.Outgoing {
-			element["to_account"] = payment.Participant.Name
+			element["to_account"] = payment.Counterparty.Name
 		} else {
-			element["from_account"] = payment.Participant.Name
+			element["from_account"] = payment.Counterparty.Name
 		}
 
 		elements[index] = element
