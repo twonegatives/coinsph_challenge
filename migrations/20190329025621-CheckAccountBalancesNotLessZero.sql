@@ -1,6 +1,6 @@
 
 -- +migrate Up
-ALTER TABLE accounts ADD CONSTRAINT valid_balance CHECK (balance >= 0 OR id = 1);
+ALTER TABLE accounts ADD CONSTRAINT valid_balance CHECK (balance >= 0 OR name = 'SYSTEM');
 
 -- +migrate Down
 
