@@ -2,5 +2,5 @@ package entities
 
 type Direction string
 
-const Incoming Direction = "Incoming"
-const Outgoing Direction = "Outgoing"
+const Incoming Direction = "incoming"
+const Outgoing Direction = "outgoing"

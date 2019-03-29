@@ -3,7 +3,8 @@ package entities
 import "github.com/shopspring/decimal"
 
 type Account struct {
-	ID       string          `json:"id"`
+	ID       int             `json:"-"`
+	Name     string          `json:"name"`
 	Balance  decimal.Decimal `json:"balance"`
 	Currency Currency        `json:"currency"`
 }
