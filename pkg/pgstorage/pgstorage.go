@@ -6,6 +6,7 @@ import (
 	"database/sql"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
 )
 
@@ -21,7 +22,7 @@ func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, er
 	query := `SELECT id, name, balance, currency FROM accounts`
 	rows, err := s.DB.QueryContext(ctx, query)
 	if err != nil {
-		return nil, errors.Wrap(err, "Can not query Accounts list")
+		return nil, errors.Wrap(err, "can't query Accounts list")
 	}
 
 	defer rows.Close()
@@ -31,7 +32,7 @@ func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, er
 		var account entities.Account
 		err := rows.Scan(&account.ID, &account.Name, &account.Balance, &account.Currency)
 		if err != nil {
-			return accounts, errors.Wrap(err, "Can't scan Account db row")
+			return accounts, errors.Wrap(err, "can't scan Account db row")
 		}
 		accounts = append(accounts, account)
 	}
@@ -57,7 +58,7 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 	`
 	rows, err := s.DB.QueryContext(ctx, query)
 	if err != nil {
-		return nil, errors.Wrap(err, "Can not query Payments list")
+		return nil, errors.Wrap(err, "can't query Payments list")
 	}
 
 	defer rows.Close()
@@ -76,7 +77,7 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 			&payment.Amount,
 		)
 		if err != nil {
-			return payments, errors.Wrap(err, "Can't scan Payment db row")
+			return payments, errors.Wrap(err, "can't scan Payment db row")
 		}
 		payments = append(payments, payment)
 	}
@@ -84,6 +85,72 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 	return payments, nil
 }
 
-func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account) error {
-	return nil
+func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) (err error) {
+	if from.Name == to.Name {
+		return errors.New("can't transfer funds to the same account")
+	}
+
+	tx, err := s.DB.Begin()
+	defer tx.Rollback()
+
+	if err != nil {
+		return errors.Wrap(err, "can't open transaction")
+	}
+
+	selectQuery := "SELECT id FROM accounts WHERE name = $1 FOR UPDATE"
+	paymentSides := getSortedPaymentSides(&from, &to)
+	for _, side := range paymentSides {
+		if err := tx.QueryRowContext(ctx, selectQuery, side.account.Name).Scan(&side.account.ID); err != nil {
+			return errors.Wrapf(err, "can't obtain %s account", side.label)
+		}
+	}
+
+	var txID int
+	insertTxQuery := "INSERT INTO transactions(created_at) VALUES(NOW()) RETURNING id"
+	if err := tx.QueryRowContext(ctx, insertTxQuery).Scan(&txID); err != nil {
+		return errors.Wrap(err, "can't insert new transaction")
+	}
+
+	insertPaymentQuery := `
+		INSERT INTO payments(
+			transaction_id,
+			account_id,
+			participant_id,
+			direction,
+			amount
+		) VALUES ($1, $2, $3, $4, $5)
+		`
+	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, from.ID, to.ID, "outgoing", amount); err != nil {
+		return errors.Wrap(err, "can't insert outgoing payment")
+	}
+
+	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, to.ID, from.ID, "incoming", amount); err != nil {
+		return errors.Wrap(err, "can't insert incoming payment")
+	}
+
+	if _, err := tx.ExecContext(ctx, "UPDATE accounts SET balance = balance - $1 WHERE id = $2", amount, from.ID); err != nil {
+		return errors.Wrap(err, "can't update sender balance")
+	}
+
+	if _, err := tx.ExecContext(ctx, "UPDATE accounts SET balance = balance + $1 WHERE id = $2", amount, to.ID); err != nil {
+		return errors.Wrap(err, "can't update receiver balance")
+	}
+
+	return errors.Wrap(tx.Commit(), "transaction commit failed")
+}
+
+type paymentSide struct {
+	account *entities.Account
+	label   string
+}
+
+func getSortedPaymentSides(from *entities.Account, to *entities.Account) []paymentSide {
+	sender := paymentSide{account: from, label: "sender"}
+	receiver := paymentSide{account: to, label: "receiver"}
+
+	if from.Name > to.Name {
+		return []paymentSide{sender, receiver}
+	}
+
+	return []paymentSide{receiver, sender}
 }

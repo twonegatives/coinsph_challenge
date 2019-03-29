@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
 	"github.com/twonegatives/coinsph_challenge/pkg/storage"
 )
@@ -35,6 +36,6 @@ func (svc *Service) GetPaymentsList(ctx context.Context, _req GetPaymentsRequest
 }
 
 func (svc *Service) SendPayment(ctx context.Context, _req SendPaymentRequest) error {
-	err := svc.store.SendPayment(ctx, entities.Account{}, entities.Account{})
+	err := svc.store.SendPayment(ctx, entities.Account{}, entities.Account{}, decimal.New(0, 0))
 	return errors.Wrap(err, "failed to save new payment")
 }
