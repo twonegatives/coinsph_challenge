@@ -42,15 +42,15 @@ func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, er
 
 func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, error) {
 	query := `
-		SELECT
+    SELECT
 			owners.id,
-			owners.name,
-			participants.id,
-			participants.name,
-			transactions.id,
-			transactions.created_at,
-			direction,
-			amount
+      owners.name,
+      participants.id,
+      participants.name,
+      transactions.id,
+      transactions.created_at,
+      direction,
+      amount
 		FROM payments
 		INNER JOIN accounts AS owners ON payments.account_id = owners.id
 		INNER JOIN accounts AS participants ON payments.participant_id = participants.id
@@ -85,7 +85,7 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 	return payments, nil
 }
 
-func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) (err error) {
+func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error {
 	if from.Name == to.Name {
 		return errors.New("can't transfer funds to the same account")
 	}
