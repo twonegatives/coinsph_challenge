@@ -5,6 +5,7 @@ go: "1.11"
 services:
   - postgresql
 addons:
+  postgresql: "9.6"
 env:
   global:
     - PATH=$PATH:$HOME/gopath/bin
