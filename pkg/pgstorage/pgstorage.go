@@ -11,6 +11,7 @@ import (
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
 )
 
+// PgStorage is an implementation of Storage interface
 type PgStorage struct {
 	DB *sql.DB
 }
@@ -104,16 +105,16 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 	return payments, nil
 }
 
-// TODO: consider calling this logic out of service layer
-// TODO: consider having errors as constants/structs
 // SendPayment transfers 'amount' of money between 'from' and 'to' accounts.
 // It creates two Payment records, a linked Transaction record, and updates Accounts balances.
 // Returns error if:
-// - balance goes below zero for Account (except SYSTEM)
-// - balance does not match Account's sum of his/her payments amount
-// - 'from' and 'to' is the same account
-// - database connection issues arise
+// balance goes below zero for Account (except SYSTEM);
+// balance does not match Account's sum of his/her payments amount;
+// 'from' and 'to' is the same account;
+// database connection issues arise.
 func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error {
+	// TODO: consider calling this logic out of service layer
+	// TODO: consider having errors as constants/structs
 	if from.Name == to.Name {
 		return errors.New("can't transfer funds to the same account")
 	}
@@ -173,6 +174,9 @@ type paymentSide struct {
 	label   string
 }
 
+// We need to lock Account rows safely in a determined order.
+// By having sender and receiver sorted by name and locked in this
+// order we ensure that our code is not a subject to a deadlock
 func getSortedPaymentSides(from *entities.Account, to *entities.Account) []paymentSide {
 	sender := paymentSide{account: from, label: "sender"}
 	receiver := paymentSide{account: to, label: "receiver"}

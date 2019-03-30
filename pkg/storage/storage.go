@@ -1,3 +1,5 @@
+// Package storage contains an interface which should be
+// implemented by persistance repositories (e.g. database, memory stores etc)
 package storage
 
 import (

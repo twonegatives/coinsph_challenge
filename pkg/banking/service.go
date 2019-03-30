@@ -13,6 +13,8 @@ import (
 
 //go:generate mockgen -source=service.go -destination ../mocks/mock_banking_service.go -package mocks
 
+// BankingService is an abstraction which contains declarations of methods
+// used to create/show Accounts and Payments.
 type BankingService interface {
 	CreateAccount(ctx context.Context, accountName string) (entities.Account, error)
 	GetAccountsList(ctx context.Context) ([]entities.Account, error)
@@ -20,6 +22,7 @@ type BankingService interface {
 	SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error
 }
 
+// Service is an implementation of BankingService.
 type Service struct {
 	store storage.Storage
 }

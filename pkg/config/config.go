@@ -18,6 +18,9 @@ func getDefaults() *configDefaults {
 	}
 }
 
+// NewConfig returns a configuration object
+// with attributes set up from defaults and
+// environment variables
 func NewConfig() *viper.Viper {
 	defaults := getDefaults()
 	cfg := viper.New()
