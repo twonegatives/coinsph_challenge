@@ -108,7 +108,7 @@ func TestPGStorageSendPayment(t *testing.T) {
 			john, err := createAccount(pg.DB, "john", decimal.New(0, 0))
 			require.NoError(t, err)
 
-			amount := decimal.New(9999, 0)
+			amount := decimal.New(9999, -2)
 			err = pg.SendPayment(ctx, system, john, amount)
 			require.NoError(t, err)
 
