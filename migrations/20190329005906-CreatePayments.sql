@@ -9,6 +9,7 @@ CREATE TABLE payments (
   counterparty_id integer   REFERENCES accounts(id)      ON DELETE RESTRICT NOT NULL,
   direction       direction NOT NULL,
   amount          decimal   NOT NULL,
+  currency        currency  NOT NULL,
   PRIMARY KEY(id)
 );
 

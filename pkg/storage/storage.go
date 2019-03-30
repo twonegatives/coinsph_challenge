@@ -7,6 +7,8 @@ import (
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
 )
 
+//go:generate mockgen -source=storage.go -destination ../mocks/mock_storage.go -package mocks
+
 type Storage interface {
 	CreateAccount(ctx context.Context, accountName string) (entities.Account, error)
 	GetAccountsList(ctx context.Context) ([]entities.Account, error)

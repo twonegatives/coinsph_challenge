@@ -8,4 +8,5 @@ type Payment struct {
 	Transaction  Transaction
 	Direction    Direction
 	Amount       decimal.Decimal
+	Currency     Currency
 }

@@ -53,15 +53,16 @@ func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, er
 
 func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, error) {
 	query := `
-    SELECT
+		SELECT
 			owners.id,
-      owners.name,
-      counterparties.id,
-      counterparties.name,
-      transactions.id,
-      transactions.created_at,
-      direction,
-      amount
+			owners.name,
+			counterparties.id,
+			counterparties.name,
+			transactions.id,
+			transactions.created_at,
+			direction,
+			amount,
+			payments.currency
 		FROM payments
 		INNER JOIN accounts AS owners ON payments.account_id = owners.id
 		INNER JOIN accounts AS counterparties ON payments.counterparty_id = counterparties.id
@@ -86,6 +87,7 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 			&payment.Transaction.CreatedAt,
 			&payment.Direction,
 			&payment.Amount,
+			&payment.Currency,
 		)
 		if err != nil {
 			return payments, errors.Wrap(err, "can't scan Payment db row")
@@ -128,14 +130,15 @@ func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to e
 			account_id,
 			counterparty_id,
 			direction,
-			amount
-		) VALUES ($1, $2, $3, $4, $5)
+			amount,
+			currency
+		) VALUES ($1, $2, $3, $4, $5, $6)
 		`
-	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, from.ID, to.ID, "outgoing", amount); err != nil {
+	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, from.ID, to.ID, "outgoing", amount, entities.USD); err != nil {
 		return errors.Wrap(err, "can't insert outgoing payment")
 	}
 
-	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, to.ID, from.ID, "incoming", amount); err != nil {
+	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, to.ID, from.ID, "incoming", amount, entities.USD); err != nil {
 		return errors.Wrap(err, "can't insert incoming payment")
 	}
 

@@ -23,7 +23,7 @@ func NewConfig() *viper.Viper {
 	cfg.SetDefault("LISTEN", defaults.Listen)
 	cfg.SetDefault("APP_ENV", defaults.AppEnv)
 	cfg.SetDefault("DB", defaults.DB)
-	cfg.SetDefault("SHUTDOWN_TIMEPUT", "2s")
+	cfg.SetDefault("SHUTDOWN_TIMEOUT", "2s")
 	cfg.AutomaticEnv()
 
 	return cfg

@@ -9,6 +9,8 @@ import (
 	"github.com/twonegatives/coinsph_challenge/pkg/storage"
 )
 
+//go:generate mockgen -source=service.go -destination ../mocks/mock_banking_service.go -package mocks
+
 type BankingService interface {
 	CreateAccount(ctx context.Context, accountName string) (entities.Account, error)
 	GetAccountsList(ctx context.Context) ([]entities.Account, error)

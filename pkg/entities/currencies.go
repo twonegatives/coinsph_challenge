@@ -2,4 +2,4 @@ package entities
 
 type Currency string
 
-const USD Currency = "USD"
+const USD Currency = "usd"

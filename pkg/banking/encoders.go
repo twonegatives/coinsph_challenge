@@ -22,6 +22,7 @@ func (e *paymentsJSONEncoder) encode(payments []entities.Payment) ([]byte, error
 			"account":   payment.Account.Name,
 			"amount":    payment.Amount,
 			"direction": payment.Direction,
+			"currency":  payment.Currency,
 		}
 
 		if payment.Direction == entities.Outgoing {
