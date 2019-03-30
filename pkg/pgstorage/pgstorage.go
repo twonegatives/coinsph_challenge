@@ -1,4 +1,5 @@
-// Package pgstorage is an PostgreSQL implementation of storage interface
+// Package pgstorage is an PostgreSQL implementation of storage interface.
+// It allows to persist objects in PostgreSQL database.
 package pgstorage
 
 import (
@@ -18,6 +19,9 @@ func NewPgStorage(db *sql.DB) *PgStorage {
 	return &PgStorage{DB: db}
 }
 
+// CreateAccount accepts account name as an argument and tries to
+// create a new account with such name. Returns the created Account
+// object on success.
 func (s *PgStorage) CreateAccount(ctx context.Context, accountName string) (entities.Account, error) {
 	query := `INSERT INTO accounts(name, balance, currency) VALUES($1, $2, $3) RETURNING id`
 	account := entities.Account{
@@ -29,6 +33,7 @@ func (s *PgStorage) CreateAccount(ctx context.Context, accountName string) (enti
 	return account, errors.Wrap(err, "can't create new account")
 }
 
+// GetAccountsList returns slice of Accounts currently existing in the system
 func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, error) {
 	query := `SELECT id, name, balance, currency FROM accounts`
 	rows, err := s.DB.QueryContext(ctx, query)
@@ -51,6 +56,7 @@ func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, er
 	return accounts, nil
 }
 
+// GetPaymentsList returns slice of Payments currently existing in the system
 func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, error) {
 	query := `
 		SELECT
@@ -98,6 +104,15 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 	return payments, nil
 }
 
+// TODO: consider calling this logic out of service layer
+// TODO: consider having errors as constants/structs
+// SendPayment transfers 'amount' of money between 'from' and 'to' accounts.
+// It creates two Payment records, a linked Transaction record, and updates Accounts balances.
+// Returns error if:
+// - balance goes below zero for Account (except SYSTEM)
+// - balance does not match Account's sum of his/her payments amount
+// - 'from' and 'to' is the same account
+// - database connection issues arise
 func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error {
 	if from.Name == to.Name {
 		return errors.New("can't transfer funds to the same account")

@@ -7,9 +7,15 @@ import (
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
 )
 
+// paymentsJSONEncoder is a helper struct to convert database- and application-level
+// entity.Payment objects into a desired JSON format.
+// this format differs from entities.Payment by having Counterparty name
+// translated to either to_account or from_account based on payment Direction
 type paymentsJSONEncoder struct {
 }
 
+// encode is the method which takes application-level entity.Payment
+// and converts it to JSON format of paymentsJSONEncoder
 func (e *paymentsJSONEncoder) encode(payments []entities.Payment) ([]byte, error) {
 	if payments == nil {
 		return nil, errors.New("payments array should be initialized in order to encode it")

@@ -7,6 +7,8 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// TODO: consider switch from errors as the second result value
+// to errors as a part of first (structured) result value
 func MakeCreateAccountEndpoint(svc BankingService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(createAccountRequest)

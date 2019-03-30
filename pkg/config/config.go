@@ -1,3 +1,5 @@
+// Package config provides functionality to alter application
+// behaviour based on a set of passed environment variables
 package config
 
 import "github.com/spf13/viper"

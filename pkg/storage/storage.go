@@ -9,6 +9,7 @@ import (
 
 //go:generate mockgen -source=storage.go -destination ../mocks/mock_storage.go -package mocks
 
+// Storage is an abstraction unifying methods for objects persistance.
 type Storage interface {
 	CreateAccount(ctx context.Context, accountName string) (entities.Account, error)
 	GetAccountsList(ctx context.Context) ([]entities.Account, error)
