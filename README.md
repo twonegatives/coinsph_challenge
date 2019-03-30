@@ -1,5 +1,6 @@
 [![Build Status](https://travis-ci.com/twonegatives/coinsph_challenge.svg?branch=master)](https://travis-ci.com/twonegatives/coinsph_challenge)
 [![codecov](https://codecov.io/gh/twonegatives/coinsph_challenge/branch/master/graph/badge.svg)](https://codecov.io/gh/twonegatives/coinsph_challenge)
+[![Maintainability](https://api.codeclimate.com/v1/badges/531e7ad5551a8ed8bd49/maintainability)](https://codeclimate.com/github/twonegatives/coinsph_challenge/maintainability)
 
 # Coins.ph challenge
 
@@ -74,7 +75,10 @@ Wallet uses:
 * [mockgen](https://github.com/golang/mock) for interfaces auto-creation
 
 Wallet does not require you to create a test database manually.
-Instead it connects to the development database and creates a test db and migrates it automatically on tests run.
+Instead on tests run it does the following automatically:
+- connects to the development database;
+- creates a test db;
+- migrates a test db.
 Please note that this requires you to have a dev db (default is `coinsph`) to be set up prior to firing up tests.
 
 Run tests:
