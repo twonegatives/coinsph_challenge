@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.com/twonegatives/coinsph_challenge.svg?branch=master)](https://travis-ci.com/twonegatives/coinsph_challenge)
+[![codecov](https://codecov.io/gh/twonegatives/coinsph_challenge/branch/master/graph/badge.svg)](https://codecov.io/gh/twonegatives/coinsph_challenge)
 
 # Coins.ph challenge
 
@@ -74,7 +75,7 @@ Wallet uses:
 
 Wallet does not require you to create a test database manually.
 Instead it connects to the development database and creates a test db and migrates it automatically on tests run.
-Please note that this requires you to have a dev db (default it `coinsph`) to be set up prior to firing up tests.
+Please note that this requires you to have a dev db (default is `coinsph`) to be set up prior to firing up tests.
 
 Run tests:
 
