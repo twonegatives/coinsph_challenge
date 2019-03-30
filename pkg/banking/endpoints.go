@@ -35,7 +35,7 @@ func MakeGetPaymentsEndpoint(svc BankingService) endpoint.Endpoint {
 func MakeSendPaymentEndpoint(svc BankingService) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (interface{}, error) {
 		req := request.(sendPaymentRequest)
-		if req.From.Name == "" || req.To.Name == "" || req.Amount.LessThan(decimal.NewFromFloat(0)) {
+		if req.From.Name == "" || req.To.Name == "" || req.Amount.LessThanOrEqual(decimal.NewFromFloat(0)) {
 			return nil, errBadRequest
 		}
 		err := svc.SendPayment(ctx, req.From, req.To, req.Amount)

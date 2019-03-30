@@ -39,6 +39,10 @@ In order to address the mentioned issues wallet makes use of the following techn
 These arrangements provide a solid confidence in data integrity, though do not cover some nasty cases which may arise if someone makes changes using the db client directly on production servers.
 A complete bulletproof solution would require more restrictive trigger policies which was intentionally left out of the scope for this phase.
 
+## Web API
+
+Check [api.md](https://github.com/twonegatives/coinsph_challenge/blob/master/docs/api.md) file for API documentation.
+
 ## Installation
 * [Golang v. 1.11.1+](https://golang.org/dl)
 * [SqlMigrate](https://github.com/rubenv/sql-migrate)
