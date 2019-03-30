@@ -7,14 +7,14 @@ In order to obtain access to the whole application functionality you're recommen
 
 ### Create account
 
-- _Method_: `POST`
-- _URL_: `/api/v1/accounts`
-- _Payload_: Nested JSON object containing account name
-- _Response_: JSON struct of created account
-- _Exception_: `400` on request with blank account name
-- _Exception_: `500` on request with duplicated account name
+- __Method__: `POST`
+- __URL__: `/api/v1/accounts`
+- __Payload__: Nested JSON object containing account name
+- __Response__: JSON struct of created account
+- __Exception__: `400` on request with blank account name
+- __Exception__: `500` on request with duplicated account name
 
-_Examples_:
+__Examples__:
 ```bash
 > curl -v -X POST localhost:8090/api/v1/accounts -d '{"account": {"name": "john_doe"}}'
 < HTTP/1.1 200 OK
@@ -33,15 +33,15 @@ _Examples_:
 < {"error":"bad request"}
 ```
 
-_Note_: account name is the only attribute consumed by Account creation API. Balance and currency are automatically set up to `0` and `usd` respectively.
+__Note__: account name is the only attribute consumed by Account creation API. Balance and currency are automatically set up to `0` and `usd` respectively.
 
 ### Get accounts list
 
-- _Method_: `GET`
-- _URL_: `/api/v1/accounts`
-- _Response_: JSON array of existing accounts
+- __Method__: `GET`
+- __URL__: `/api/v1/accounts`
+- __Response__: JSON array of existing accounts
 
-_Examples_:
+__Examples__:
 ```bash
 > curl -v localhost:8090/api/v1/accounts
 < HTTP/1.1 200 OK
@@ -52,16 +52,16 @@ _Examples_:
 
 ### Create payment
 
-- _Method_: `GET`
-- _URL_: `/api/v1/payments`
-- _Payload_: Nested JSON object containing sender/receiver names and amount
-- _Response_: Blank JSON
-- _Exception_: `400` on request with blank sender/receiver names
-- _Exception_: `400` on payment amount less or equal to zero
-- _Exception_: `500` on payment which sets user balance below zero
-- _Exception_: `500` when sender and receiver is the same person
+- __Method__: `GET`
+- __URL__: `/api/v1/payments`
+- __Payload__: Nested JSON object containing sender/receiver names and amount
+- __Response__: Blank JSON
+- __Exception__: `400` on request with blank sender/receiver names
+- __Exception__: `400` on payment amount less or equal to zero
+- __Exception__: `500` on payment which sets user balance below zero
+- __Exception__: `500` when sender and receiver is the same person
 
-_Examples_:
+__Examples__:
 ```bash
 > curl -v -X POST localhost:8090/api/v1/payments -d '{"payment" : {"from": "SYSTEM", "to": "john_doe", "amount": 10.12}}'
 < HTTP/1.1 200 OK
@@ -70,11 +70,11 @@ _Examples_:
 
 ### Get payments list
 
-- _Method_: `GET`
-- _URL_: `/api/v1/payments`
-- _Response_: JSON array of existing payments
+- __Method__: `GET`
+- __URL__: `/api/v1/payments`
+- __Response__: JSON array of existing payments
 
-_Examples_:
+__Examples__:
 ```bash
 > curl -v localhost:8090/api/v1/payments
 < HTTP/1.1 200 OK
