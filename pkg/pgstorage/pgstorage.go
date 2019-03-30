@@ -18,6 +18,17 @@ func NewPgStorage(db *sql.DB) *PgStorage {
 	return &PgStorage{DB: db}
 }
 
+func (s *PgStorage) CreateAccount(ctx context.Context, accountName string) (entities.Account, error) {
+	query := `INSERT INTO accounts(name, balance, currency) VALUES($1, $2, $3) RETURNING id`
+	account := entities.Account{
+		Name:     accountName,
+		Currency: entities.USD,
+		Balance:  decimal.New(0, 0),
+	}
+	err := s.DB.QueryRowContext(ctx, query, account.Name, account.Balance, account.Currency).Scan(&account.ID)
+	return account, errors.Wrap(err, "can't create new account")
+}
+
 func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, error) {
 	query := `SELECT id, name, balance, currency FROM accounts`
 	rows, err := s.DB.QueryContext(ctx, query)

@@ -10,6 +10,7 @@ import (
 )
 
 type BankingService interface {
+	CreateAccount(ctx context.Context, accountName string) (entities.Account, error)
 	GetAccountsList(ctx context.Context) ([]entities.Account, error)
 	GetPaymentsList(ctx context.Context) ([]entities.Payment, error)
 	SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error
@@ -23,6 +24,11 @@ func NewService(s storage.Storage) *Service {
 	return &Service{
 		store: s,
 	}
+}
+
+func (svc *Service) CreateAccount(ctx context.Context, accountName string) (entities.Account, error) {
+	account, err := svc.store.CreateAccount(ctx, accountName)
+	return account, errors.Wrap(err, "failed to create new account in database")
 }
 
 func (svc *Service) GetAccountsList(ctx context.Context) ([]entities.Account, error) {

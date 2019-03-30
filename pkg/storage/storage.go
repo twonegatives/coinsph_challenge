@@ -8,6 +8,7 @@ import (
 )
 
 type Storage interface {
+	CreateAccount(ctx context.Context, accountName string) (entities.Account, error)
 	GetAccountsList(ctx context.Context) ([]entities.Account, error)
 	GetPaymentsList(ctx context.Context) ([]entities.Payment, error)
 	SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error

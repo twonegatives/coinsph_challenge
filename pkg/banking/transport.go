@@ -24,6 +24,27 @@ type sendPaymentBody struct {
 	Amount decimal.Decimal `json:"amount"`
 }
 
+type account struct {
+	Name string `json:"name"`
+}
+
+type createAccountBody struct {
+	Account account `json:"account"`
+}
+
+func decodeCreateAccountRequest(_ context.Context, r *http.Request) (interface{}, error) {
+	var body createAccountBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		return nil, errBadRequest
+	}
+
+	newAccountRequest := createAccountRequest{
+		Name: body.Account.Name,
+	}
+
+	return newAccountRequest, nil
+}
+
 func decodeSendPaymentRequest(_ context.Context, r *http.Request) (interface{}, error) {
 	var body sendPaymentBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -59,6 +80,13 @@ func MakeHandler(svc BankingService, l log.Logger) http.Handler {
 		kithttp.ServerErrorLogger(l),
 	}
 
+	createAccount := kithttp.NewServer(
+		MakeCreateAccountEndpoint(svc),
+		decodeCreateAccountRequest,
+		kithttp.EncodeJSONResponse,
+		opts...,
+	)
+
 	getAccounts := kithttp.NewServer(
 		MakeGetAccountsEndpoint(svc),
 		kithttp.NopRequestDecoder,
@@ -81,6 +109,7 @@ func MakeHandler(svc BankingService, l log.Logger) http.Handler {
 	)
 
 	m := mux.NewRouter()
+	m.Handle("/accounts", createAccount).Methods(http.MethodPost)
 	m.Handle("/accounts", getAccounts).Methods(http.MethodGet)
 	m.Handle("/payments", getPayments).Methods(http.MethodGet)
 	m.Handle("/payments", sendPayment).Methods(http.MethodPost)

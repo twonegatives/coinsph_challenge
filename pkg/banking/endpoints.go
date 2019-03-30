@@ -6,6 +6,14 @@ import (
 	"github.com/go-kit/kit/endpoint"
 )
 
+func MakeCreateAccountEndpoint(svc BankingService) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(createAccountRequest)
+		account, err := svc.CreateAccount(ctx, req.Name)
+		return createAccountResponse{Account: account}, err
+	}
+}
+
 func MakeGetAccountsEndpoint(svc BankingService) endpoint.Endpoint {
 	return func(ctx context.Context, _request interface{}) (interface{}, error) {
 		accounts, err := svc.GetAccountsList(ctx)

@@ -11,10 +11,18 @@ type sendPaymentRequest struct {
 	Amount decimal.Decimal
 }
 
+type createAccountRequest struct {
+	Name string
+}
+
 type getAccountsResponse struct {
 	Accounts []entities.Account `json:"accounts"`
 }
 
 type getPaymentsResponse struct {
 	Payments []entities.Payment `json:"payments"`
+}
+
+type createAccountResponse struct {
+	Account entities.Account `json:"account"`
 }
