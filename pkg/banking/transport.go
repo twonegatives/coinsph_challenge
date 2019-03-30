@@ -18,10 +18,14 @@ var (
 	errBadRequest = errors.New("bad request")
 )
 
-type sendPaymentBody struct {
+type payment struct {
 	From   string          `json:"from"`
 	To     string          `json:"to"`
 	Amount decimal.Decimal `json:"amount"`
+}
+
+type sendPaymentBody struct {
+	Payment payment `json:"payment"`
 }
 
 type account struct {
@@ -52,9 +56,9 @@ func decodeSendPaymentRequest(_ context.Context, r *http.Request) (interface{}, 
 	}
 
 	paymentRequest := sendPaymentRequest{
-		From:   entities.Account{Name: body.From},
-		To:     entities.Account{Name: body.To},
-		Amount: body.Amount,
+		From:   entities.Account{Name: body.Payment.From},
+		To:     entities.Account{Name: body.Payment.To},
+		Amount: body.Payment.Amount,
 	}
 
 	return paymentRequest, nil
