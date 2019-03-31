@@ -20,14 +20,20 @@ var (
 	}
 )
 
-func TestPGStorageGetAccountsList(t *testing.T) {
+func setupDependencies(t *testing.T) (*pgstorage.PgStorage, func(), context.Context) {
 	db, closeDB := prepareDB(t)
-	defer closeDB()
 	pg := pgstorage.NewPgStorage(db)
 	ctx := context.Background()
 
+	return pg, closeDB, ctx
+}
+
+func TestPGStorageGetAccountsList(t *testing.T) {
+	pg, closeDB, ctx := setupDependencies(t)
+	defer closeDB()
+
 	t.Run("returns accounts list", func(t *testing.T) {
-		charlie, err := createAccount(pg.DB, "charlie", decimal.New(1534, -2))
+		charlie, err := createAccount(pg.Handler, "charlie", decimal.New(1534, -2))
 		require.NoError(t, err)
 
 		expected := []entities.Account{system, charlie}
@@ -39,20 +45,18 @@ func TestPGStorageGetAccountsList(t *testing.T) {
 }
 
 func TestPGStorageGetPaymentsList(t *testing.T) {
-	db, closeDB := prepareDB(t)
+	pg, closeDB, ctx := setupDependencies(t)
 	defer closeDB()
-	pg := pgstorage.NewPgStorage(db)
-	ctx := context.Background()
 
 	t.Run("returns payments list", func(t *testing.T) {
 		setup := func() (entities.Account, entities.Transaction, entities.Payment) {
-			andy, err := createAccount(pg.DB, "andy", decimal.New(0, 0))
+			andy, err := createAccount(pg.Handler, "andy", decimal.New(0, 0))
 			require.NoError(t, err)
 
-			transaction, err := createTransaction(pg.DB)
+			transaction, err := createTransaction(pg.Handler)
 			require.NoError(t, err)
 
-			paymentRecord, err := createPayment(pg.DB, transaction.ID, system.ID, andy.ID, decimal.New(8732, -2))
+			paymentRecord, err := createPayment(pg.Handler, transaction.ID, system.ID, andy.ID, decimal.New(8732, -2))
 			require.NoError(t, err)
 
 			return andy, transaction, paymentRecord
@@ -79,95 +83,158 @@ type payment struct {
 	Amount         decimal.Decimal
 }
 
-func TestPGStorageSendPayment(t *testing.T) {
-	db, closeDB := prepareDB(t)
+func TestPGStorageGetAccountForUpdate(t *testing.T) {
+	pg, closeDB, ctx := setupDependencies(t)
 	defer closeDB()
-	pg := pgstorage.NewPgStorage(db)
-	ctx := context.Background()
 
-	t.Run("denies transfer to the same account", func(t *testing.T) {
-		err := pg.SendPayment(ctx, system, system, decimal.New(12, 0))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "can't transfer funds to the same account")
+	t.Run("sets account ID and balance attributes", func(t *testing.T) {
+		emma, err := createAccount(pg.Handler, "emma", decimal.New(22, -1))
+		require.NoError(t, err)
+
+		entity := entities.Account{
+			Name: "emma",
+		}
+
+		err = pg.GetAccountForUpdate(ctx, &entity)
+		require.NoError(t, err)
+
+		assert.Equal(t, decimal.New(22, -1), entity.Balance)
+		assert.Equal(t, emma.ID, entity.ID)
+	})
+}
+
+func TestPGStorageCreateTransaction(t *testing.T) {
+	pg, closeDB, ctx := setupDependencies(t)
+	defer closeDB()
+
+	t.Run("creates new Transaction entity", func(t *testing.T) {
+		tx, err := pg.CreateTransaction(ctx)
+		require.NoError(t, err)
+
+		count, err := selectTransactionsCount(pg.Handler, tx.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, count)
+	})
+}
+
+func TestPGStorageSendPayment(t *testing.T) {
+	t.Run("inserts payment", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
+
+		liam, err := createAccount(pg.Handler, "liam", decimal.New(220, -2))
+		require.NoError(t, err)
+
+		tx, err := pg.CreateTransaction(ctx)
+		require.NoError(t, err)
+
+		payment := entities.Payment{
+			Account:      system,
+			Counterparty: liam,
+			Amount:       decimal.New(15, -1),
+			Direction:    entities.Outgoing,
+			Currency:     entities.USD,
+			Transaction:  tx,
+		}
+
+		err = pg.SendPayment(ctx, payment)
+		require.NoError(t, err)
+
+		result, err := getPaymentsForParticipants(pg.Handler, system.ID, liam.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, payment.Account.ID, result[0].AccountID)
+		assert.Equal(t, payment.Counterparty.ID, result[0].CounterpartyID)
+		assert.Equal(t, string(payment.Direction), result[0].Direction)
+		assert.Equal(t, payment.Amount, result[0].Amount)
+	})
+}
+
+func TestPGStorageSetAccountBalance(t *testing.T) {
+	t.Run("updates balance", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
+
+		liam, err := createAccount(pg.Handler, "liam", decimal.New(220, -2))
+		require.NoError(t, err)
+
+		liam.Balance = decimal.New(0, 0)
+		err = pg.SetAccountBalance(ctx, liam)
+		require.NoError(t, err)
+
+		liamBalance, err := getAccountBalance(pg.Handler, liam.ID)
+		require.NoError(t, err)
+
+		assert.Equal(t, decimal.New(0, 0), liamBalance)
 	})
 
-	t.Run("denies transfer to unexisting account", func(t *testing.T) {
-		err := pg.SendPayment(ctx, system, entities.Account{Name: "unexisting"}, decimal.New(12, 0))
+	t.Run("is not allowed to set balance != sum(payments)", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
+
+		liam, err := createAccount(pg.Handler, "liam", decimal.New(220, -2))
+		require.NoError(t, err)
+
+		liam.Balance = decimal.New(250, 0)
+		err = pg.SetAccountBalance(ctx, liam)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "can't obtain receiver account")
+
+		assert.Contains(t, err.Error(), "does not correspond to its payments")
+	})
+}
+
+func TestPGStorageTransactions(t *testing.T) {
+	t.Run("does not store anything if tx was rolled back", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
+
+		txStore, err := pg.BeginTx(ctx, nil)
+		require.NoError(t, err)
+
+		txPgStore, ok := txStore.(*pgstorage.PgStorage)
+		require.Equal(t, true, ok)
+
+		_, err = createAccount(txPgStore.Handler, "liam", decimal.New(220, -2))
+		require.NoError(t, err)
+
+		err = txPgStore.RollbackTx(ctx)
+		require.NoError(t, err)
+
+		count, err := getUserAccountsCount(pg.Handler)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0, count)
 	})
 
-	t.Run("denies transfer from unexisting account", func(t *testing.T) {
-		err := pg.SendPayment(ctx, entities.Account{Name: "unexisting"}, system, decimal.New(12, 0))
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "can't obtain sender account")
-	})
+	t.Run("stores values if tx was commited", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
 
-	t.Run("transfer which sets sender balance below zero", func(t *testing.T) {
-		t.Run("is allowed for SYSTEM account", func(t *testing.T) {
-			john, err := createAccount(pg.DB, "john", decimal.New(0, 0))
-			require.NoError(t, err)
+		txStore, err := pg.BeginTx(ctx, nil)
+		require.NoError(t, err)
 
-			amount := decimal.New(9999, -2)
-			err = pg.SendPayment(ctx, system, john, amount)
-			require.NoError(t, err)
+		txPgStore, ok := txStore.(*pgstorage.PgStorage)
+		require.Equal(t, true, ok)
 
-			payments, err := getPaymentsForParticipants(pg.DB, system.ID, john.ID)
-			require.NoError(t, err)
+		logan, err := createAccount(txPgStore.Handler, "logan", decimal.New(22, -1))
+		require.NoError(t, err)
 
-			systemBalance, err := getAccountBalance(pg.DB, system.ID)
-			require.NoError(t, err)
+		err = txPgStore.CommitTx(ctx)
+		require.NoError(t, err)
 
-			johnBalance, err := getAccountBalance(pg.DB, john.ID)
-			require.NoError(t, err)
+		loganBalance, err := getAccountBalance(pg.Handler, logan.ID)
+		require.NoError(t, err)
 
-			expectedPayments := []payment{
-				{
-					AccountID:      system.ID,
-					CounterpartyID: john.ID,
-					Direction:      "outgoing",
-					Amount:         amount,
-				},
-				{
-					AccountID:      john.ID,
-					CounterpartyID: system.ID,
-					Direction:      "incoming",
-					Amount:         amount,
-				},
-			}
-
-			assert.Equal(t, expectedPayments, payments)
-			assert.Equal(t, amount, johnBalance)
-			assert.Equal(t, amount.Mul(decimal.NewFromFloat(-1.0)), systemBalance)
-		})
-
-		t.Run("is denied for any other account", func(t *testing.T) {
-			setup := func() (entities.Account, entities.Account) {
-				mary, err := createAccount(pg.DB, "mary", decimal.New(0, 0))
-				require.NoError(t, err)
-
-				wendy, err := createAccount(pg.DB, "wendy", decimal.New(0, 0))
-				require.NoError(t, err)
-
-				return mary, wendy
-			}
-
-			mary, wendy := setup()
-			amount := decimal.New(9999, 0)
-			err := pg.SendPayment(ctx, mary, wendy, amount)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "can't update sender balance")
-		})
+		assert.Equal(t, decimal.New(22, -1), loganBalance)
 	})
 }
 
 func TestPGStorageCreateAccount(t *testing.T) {
-	db, closeDB := prepareDB(t)
-	defer closeDB()
-	pg := pgstorage.NewPgStorage(db)
-	ctx := context.Background()
-
 	t.Run("creates account", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
+
 		name := "tony"
 		account, err := pg.CreateAccount(ctx, name)
 		require.NoError(t, err)
@@ -175,12 +242,25 @@ func TestPGStorageCreateAccount(t *testing.T) {
 		assert.Equal(t, name, account.Name)
 		assert.Equal(t, decimal.New(0, 0), account.Balance)
 		assert.Equal(t, entities.USD, account.Currency)
+
+		count, err := getUserAccountsCount(pg.Handler)
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, count)
 	})
 
 	t.Run("does not create account with duplicated name", func(t *testing.T) {
+		pg, closeDB, ctx := setupDependencies(t)
+		defer closeDB()
+
 		name := "SYSTEM"
 		_, err := pg.CreateAccount(ctx, name)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "can't create new account")
+
+		count, err := getUserAccountsCount(pg.Handler)
+		require.NoError(t, err)
+
+		assert.Equal(t, 0, count)
 	})
 }

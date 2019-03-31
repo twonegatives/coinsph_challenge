@@ -1,11 +1,11 @@
 package pgstorage_test
 
 import (
-	"database/sql"
 	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
+	"github.com/twonegatives/coinsph_challenge/pkg/storage"
 )
 
 const (
@@ -53,9 +53,27 @@ const (
 		FROM accounts
 		WHERE id = $1
 	`
+
+	selectTransactionCountQuery = `
+		SELECT COUNT(*)
+		FROM transactions
+		WHERE id = $1
+	`
+
+	selectAccountCountQuery = `
+		SELECT COUNT(*)
+		FROM accounts
+		WHERE name != 'SYSTEM'
+	`
 )
 
-func getPaymentsForParticipants(db *sql.DB, accountID, participantID int) ([]payment, error) {
+func selectTransactionsCount(db storage.Queryable, txID int) (int, error) {
+	var count int
+	err := db.QueryRow(selectTransactionCountQuery, txID).Scan(&count)
+	return count, err
+}
+
+func getPaymentsForParticipants(db storage.Queryable, accountID, participantID int) ([]payment, error) {
 	payments := []payment{}
 	rows, err := db.Query(selectPaymentsQuery, accountID, participantID)
 	if err != nil {
@@ -74,13 +92,19 @@ func getPaymentsForParticipants(db *sql.DB, accountID, participantID int) ([]pay
 	return payments, nil
 }
 
-func getAccountBalance(db *sql.DB, accountID int) (decimal.Decimal, error) {
+func getUserAccountsCount(db storage.Queryable) (int, error) {
+	var count int
+	err := db.QueryRow(selectAccountCountQuery).Scan(&count)
+	return count, err
+}
+
+func getAccountBalance(db storage.Queryable, accountID int) (decimal.Decimal, error) {
 	var balance decimal.Decimal
 	err := db.QueryRow(selectAccountBalanceQuery, accountID).Scan(&balance)
 	return balance, err
 }
 
-func createAccount(db *sql.DB, name string, balance decimal.Decimal) (entities.Account, error) {
+func createAccount(db storage.Queryable, name string, balance decimal.Decimal) (entities.Account, error) {
 	account := entities.Account{
 		Name:     name,
 		Balance:  balance,
@@ -90,7 +114,7 @@ func createAccount(db *sql.DB, name string, balance decimal.Decimal) (entities.A
 	return account, err
 }
 
-func createTransaction(db *sql.DB) (entities.Transaction, error) {
+func createTransaction(db storage.Queryable) (entities.Transaction, error) {
 	transaction := entities.Transaction{
 		CreatedAt: time.Now(),
 	}
@@ -99,7 +123,7 @@ func createTransaction(db *sql.DB) (entities.Transaction, error) {
 	return transaction, err
 }
 
-func createPayment(db *sql.DB, txID, accID, cptyID int, amount decimal.Decimal) (entities.Payment, error) {
+func createPayment(db storage.Queryable, txID, accID, cptyID int, amount decimal.Decimal) (entities.Payment, error) {
 	payment := entities.Payment{
 		Transaction:  entities.Transaction{ID: txID},
 		Account:      entities.Account{ID: accID},

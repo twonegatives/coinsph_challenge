@@ -11,3 +11,10 @@ type Account struct {
 	Balance  decimal.Decimal `json:"balance"`
 	Currency Currency        `json:"currency"`
 }
+
+func (a Account) MayGoBelowZero() bool {
+	if a.Name == "SYSTEM" {
+		return true
+	}
+	return false
+}

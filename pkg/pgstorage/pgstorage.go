@@ -9,15 +9,60 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 	"github.com/twonegatives/coinsph_challenge/pkg/entities"
+	"github.com/twonegatives/coinsph_challenge/pkg/storage"
 )
 
 // PgStorage is an implementation of Storage interface
 type PgStorage struct {
-	DB *sql.DB
+	Handler storage.Queryable
 }
 
-func NewPgStorage(db *sql.DB) *PgStorage {
-	return &PgStorage{DB: db}
+func NewPgStorage(handler storage.Queryable) *PgStorage {
+	return &PgStorage{Handler: handler}
+}
+
+// BeginTx starts db transaction and returns a new Storage implementation with the transaction as a handler for db queries
+func (s *PgStorage) BeginTx(ctx context.Context, opts *sql.TxOptions) (storage.Storage, error) {
+	dbConn, ok := s.Handler.(storage.TransactionBeginner)
+	if !ok {
+		return nil, errors.New("handler doesn't satisfy the interface TransactionBeginner")
+	}
+
+	tx, err := dbConn.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to start tx")
+	}
+
+	newClient := &PgStorage{Handler: tx}
+	return newClient, nil
+}
+
+// CommitTx commits a current db transaction if exists. Does nothing if transaction was not open.
+func (s *PgStorage) CommitTx(ctx context.Context) error {
+	tx := s.tx()
+	if tx == nil {
+		return errors.New("nothing to commit, transaction is not started")
+	}
+
+	return errors.Wrap(tx.Commit(), "failed to commit db transaction")
+}
+
+// RollbackTx rollbacks a current db transaction if exists. Does nothing if transaction was not open.
+func (s *PgStorage) RollbackTx(ctx context.Context) error {
+	tx := s.tx()
+	if tx == nil {
+		return errors.New("nothing to rollback, transaction is not started")
+	}
+
+	return errors.Wrap(tx.Rollback(), "failed to rollback db transaction")
+}
+
+// tx returns database transaction if the storage started it previously
+func (s *PgStorage) tx() *sql.Tx {
+	if tx, ok := s.Handler.(*sql.Tx); ok {
+		return tx
+	}
+	return nil
 }
 
 // CreateAccount accepts account name as an argument and tries to
@@ -30,14 +75,14 @@ func (s *PgStorage) CreateAccount(ctx context.Context, accountName string) (enti
 		Currency: entities.USD,
 		Balance:  decimal.New(0, 0),
 	}
-	err := s.DB.QueryRowContext(ctx, query, account.Name, account.Balance, account.Currency).Scan(&account.ID)
+	err := s.Handler.QueryRowContext(ctx, query, account.Name, account.Balance, account.Currency).Scan(&account.ID)
 	return account, errors.Wrap(err, "can't create new account")
 }
 
 // GetAccountsList returns slice of Accounts currently existing in the system
 func (s *PgStorage) GetAccountsList(ctx context.Context) ([]entities.Account, error) {
 	query := `SELECT id, name, balance, currency FROM accounts`
-	rows, err := s.DB.QueryContext(ctx, query)
+	rows, err := s.Handler.QueryContext(ctx, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't query Accounts list")
 	}
@@ -75,7 +120,7 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 		INNER JOIN accounts AS counterparties ON payments.counterparty_id = counterparties.id
 		INNER JOIN transactions ON payments.transaction_id = transactions.id
 	`
-	rows, err := s.DB.QueryContext(ctx, query)
+	rows, err := s.Handler.QueryContext(ctx, query)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't query Payments list")
 	}
@@ -105,41 +150,24 @@ func (s *PgStorage) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 	return payments, nil
 }
 
-// SendPayment transfers 'amount' of money between 'from' and 'to' accounts.
-// It creates two Payment records, a linked Transaction record, and updates Accounts balances.
-// Returns error if:
-// balance goes below zero for Account (except SYSTEM);
-// balance does not match Account's sum of his/her payments amount;
-// 'from' and 'to' is the same account;
-// database connection issues arise.
-func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error {
-	// TODO: consider calling this logic out of service layer
-	// TODO: consider having errors as constants/structs
-	if from.Name == to.Name {
-		return errors.New("can't transfer funds to the same account")
-	}
+// GetAccountForUpdate returns Account entitiy with an explicit declaration of row lock
+func (s *PgStorage) GetAccountForUpdate(ctx context.Context, account *entities.Account) error {
+	selectQuery := "SELECT id, balance FROM accounts WHERE name = $1 FOR UPDATE"
+	err := s.Handler.QueryRowContext(ctx, selectQuery, account.Name).Scan(&account.ID, &account.Balance)
+	return errors.Wrapf(err, "can't obtain account %s", account.Name)
+}
 
-	tx, err := s.DB.Begin()
-	defer tx.Rollback()
-
-	if err != nil {
-		return errors.Wrap(err, "can't open transaction")
-	}
-
-	selectQuery := "SELECT id FROM accounts WHERE name = $1 FOR UPDATE"
-	paymentSides := getSortedPaymentSides(&from, &to)
-	for _, side := range paymentSides {
-		if err := tx.QueryRowContext(ctx, selectQuery, side.account.Name).Scan(&side.account.ID); err != nil {
-			return errors.Wrapf(err, "can't obtain %s account", side.label)
-		}
-	}
-
-	var txID int
+// CreateTransaction creates a Transaction entity
+func (s *PgStorage) CreateTransaction(ctx context.Context) (entities.Transaction, error) {
+	var result entities.Transaction
 	insertTxQuery := "INSERT INTO transactions(created_at) VALUES(NOW()) RETURNING id"
-	if err := tx.QueryRowContext(ctx, insertTxQuery).Scan(&txID); err != nil {
-		return errors.Wrap(err, "can't insert new transaction")
-	}
+	err := s.Handler.QueryRowContext(ctx, insertTxQuery).Scan(&result.ID)
+	return result, errors.Wrap(err, "can't insert new transaction")
+}
 
+// SendPayment creates a single Payment entity.
+// It is expected to be called two times per each Transaction.
+func (s *PgStorage) SendPayment(ctx context.Context, payment entities.Payment) error {
 	insertPaymentQuery := `
 		INSERT INTO payments(
 			transaction_id,
@@ -150,40 +178,13 @@ func (s *PgStorage) SendPayment(ctx context.Context, from entities.Account, to e
 			currency
 		) VALUES ($1, $2, $3, $4, $5, $6)
 		`
-	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, from.ID, to.ID, "outgoing", amount, entities.USD); err != nil {
-		return errors.Wrap(err, "can't insert outgoing payment")
-	}
-
-	if _, err := tx.ExecContext(ctx, insertPaymentQuery, txID, to.ID, from.ID, "incoming", amount, entities.USD); err != nil {
-		return errors.Wrap(err, "can't insert incoming payment")
-	}
-
-	if _, err := tx.ExecContext(ctx, "UPDATE accounts SET balance = balance - $1 WHERE id = $2", amount, from.ID); err != nil {
-		return errors.Wrap(err, "can't update sender balance")
-	}
-
-	if _, err := tx.ExecContext(ctx, "UPDATE accounts SET balance = balance + $1 WHERE id = $2", amount, to.ID); err != nil {
-		return errors.Wrap(err, "can't update receiver balance")
-	}
-
-	return errors.Wrap(tx.Commit(), "transaction commit failed")
+	_, err := s.Handler.ExecContext(ctx, insertPaymentQuery, payment.Transaction.ID, payment.Account.ID, payment.Counterparty.ID, payment.Direction, payment.Amount, payment.Currency)
+	return errors.Wrapf(err, "can't insert %s payment", payment.Direction)
 }
 
-type paymentSide struct {
-	account *entities.Account
-	label   string
-}
-
-// We need to lock Account rows safely in a determined order.
-// By having sender and receiver sorted by name and locked in this
-// order we ensure that our code is not a subject to a deadlock
-func getSortedPaymentSides(from *entities.Account, to *entities.Account) []paymentSide {
-	sender := paymentSide{account: from, label: "sender"}
-	receiver := paymentSide{account: to, label: "receiver"}
-
-	if from.Name > to.Name {
-		return []paymentSide{sender, receiver}
-	}
-
-	return []paymentSide{receiver, sender}
+// SetAccountBalance takes a single Account entity and updates the related
+// database row with balance equal to incoming Account entity's balance
+func (s *PgStorage) SetAccountBalance(ctx context.Context, account entities.Account) error {
+	_, err := s.Handler.ExecContext(ctx, "UPDATE accounts SET balance = $1 WHERE id = $2", account.Balance, account.ID)
+	return errors.Wrapf(err, "can't update balance of %s", account.Name)
 }
