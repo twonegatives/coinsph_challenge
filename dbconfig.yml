@@ -3,3 +3,9 @@ development:
   datasource: dbname=coinsph sslmode=disable
   dir: migrations
   table: migrations
+
+stage:
+  dialect: postgres
+  datasource: postgres://$STAGE_DB_USER_NAME:$STAGE_DB_PASSWORD@$STAGE_DB_HOST/$STAGE_DB_NAME?sslmode=disable
+  dir: migrations
+  table: migrations

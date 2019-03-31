@@ -1,0 +1,3 @@
+#!/bin/bash
+
+sql-migrate up -env=$APP_ENV

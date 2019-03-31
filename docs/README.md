@@ -99,5 +99,17 @@ A set of environment variables might be provided to alter the Waller behaviour:
 - `DB` - database connection string. Default: `postgres://localhost/coinsph?sslmode=disable`
 - `SHUTDOWN_TIMEOUT` - timeout for gracefull server stop on exceptional cases (e.g. interruption). Default: `2s`
 
+## Deployment
+There is a [Dockerfile](https://github.com/twonegatives/coinsph_challenge/blob/master/Dockerfile) to help you get up and running:
+
+```bash
+docker build -t coinsph-challenge -f Dockerfile .
+docker run -it --rm --name coinsph-running-app -p 4000:80 --env DB="postgres://DB_USER:DB_PASSWORD@DB_HOST:DB_PORT/DB_NAME?sslmode=disable" coinsph-challenge
+```
+
+Please note that database creation and migration are left out of `Dockerfile` scope and should be implemented separately.
+Either `docker-compose`, `kubernetes` or a manual `docker run` should do the trick.
+Database migration script is accessible at [bin/migrate](https://github.com/twonegatives/coinsph_challenge/blob/master/bin/migrate).
+
 ## Suggestions? Bugs? Contributions?
 If you've got a question, feature suggestion or found a bug please add an [issue](https://github.com/twonegatives/coinsph_challenge/issues) on GitHub or fork the project and send a pull request.
