@@ -223,6 +223,8 @@ func TestPGStorageTransactions(t *testing.T) {
 		err = txPgStore.CommitTx(ctx)
 		require.NoError(t, err)
 
+		txPgStore.RollbackTx(ctx)
+
 		loganBalance, err := getAccountBalance(pg.Handler, logan.ID)
 		require.NoError(t, err)
 

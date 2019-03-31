@@ -247,20 +247,111 @@ func TestBankingSvcSendPayment(t *testing.T) {
 		})
 
 		t.Run("on accounts obtaining", func(t *testing.T) {
-			mCtrl := gomock.NewController(t)
-			defer mCtrl.Finish()
-			storage := mocks.NewMockStorage(mCtrl)
+			t.Run("for sender", func(t *testing.T) {
+				mCtrl := gomock.NewController(t)
+				defer mCtrl.Finish()
+				storage := mocks.NewMockStorage(mCtrl)
 
-			storage.EXPECT().BeginTx(gomock.Any(), nil).Return(storage, nil)
-			storage.EXPECT().GetAccountForUpdate(gomock.Any(), &from).Return(ErrDB)
-			storage.EXPECT().RollbackTx(gomock.Any()).Return(nil)
+				storage.EXPECT().BeginTx(gomock.Any(), nil).Return(storage, nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &from).Return(ErrDB)
+				storage.EXPECT().RollbackTx(gomock.Any()).Return(nil)
 
-			err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "can't obtain sender account")
+				err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "can't obtain sender account")
+			})
+
+			t.Run("for receiver", func(t *testing.T) {
+				mCtrl := gomock.NewController(t)
+				defer mCtrl.Finish()
+				storage := mocks.NewMockStorage(mCtrl)
+
+				storage.EXPECT().BeginTx(gomock.Any(), nil).Return(storage, nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &from).Return(nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &to).Return(ErrDB)
+				storage.EXPECT().RollbackTx(gomock.Any()).Return(nil)
+
+				err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "can't obtain receiver account")
+			})
 		})
 
-		t.Run("on inserting outgoing payment", func(t *testing.T) {
+		t.Run("on inserting payments", func(t *testing.T) {
+			setupCommonExpectations := func(storage *mocks.MockStorage) {
+				storage.EXPECT().BeginTx(gomock.Any(), nil).Return(storage, nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &from).Return(nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &to).Return(nil)
+				storage.EXPECT().CreateTransaction(gomock.Any()).Return(entities.Transaction{}, nil)
+				storage.EXPECT().RollbackTx(gomock.Any()).Return(nil)
+			}
+			t.Run("outgoing", func(t *testing.T) {
+				mCtrl := gomock.NewController(t)
+				defer mCtrl.Finish()
+				storage := mocks.NewMockStorage(mCtrl)
+
+				setupCommonExpectations(storage)
+				storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(ErrDB)
+
+				err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "can't insert outgoing payment")
+			})
+
+			t.Run("incoming", func(t *testing.T) {
+				mCtrl := gomock.NewController(t)
+				defer mCtrl.Finish()
+				storage := mocks.NewMockStorage(mCtrl)
+
+				setupCommonExpectations(storage)
+				storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(nil)
+				storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(ErrDB)
+
+				err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "can't insert incoming payment")
+			})
+		})
+
+		t.Run("on updating account balance", func(t *testing.T) {
+			setupCommonExpectations := func(storage *mocks.MockStorage) {
+				storage.EXPECT().BeginTx(gomock.Any(), nil).Return(storage, nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &from).Return(nil)
+				storage.EXPECT().GetAccountForUpdate(gomock.Any(), &to).Return(nil)
+				storage.EXPECT().CreateTransaction(gomock.Any()).Return(entities.Transaction{}, nil)
+				storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(nil)
+				storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(nil)
+				storage.EXPECT().RollbackTx(gomock.Any()).Return(nil)
+			}
+			t.Run("sender", func(t *testing.T) {
+				mCtrl := gomock.NewController(t)
+				defer mCtrl.Finish()
+				storage := mocks.NewMockStorage(mCtrl)
+
+				setupCommonExpectations(storage)
+				storage.EXPECT().SetAccountBalance(gomock.Any(), gomock.Any()).Return(ErrDB)
+
+				err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "can't update sender account balance")
+			})
+
+			t.Run("receiver", func(t *testing.T) {
+				mCtrl := gomock.NewController(t)
+				defer mCtrl.Finish()
+				storage := mocks.NewMockStorage(mCtrl)
+
+				setupCommonExpectations(storage)
+				storage.EXPECT().SetAccountBalance(gomock.Any(), gomock.Any()).Return(nil)
+				storage.EXPECT().SetAccountBalance(gomock.Any(), gomock.Any()).Return(ErrDB)
+
+				err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), "can't update counterparty balance")
+			})
+		})
+
+		t.Run("on transaction commit", func(t *testing.T) {
 			mCtrl := gomock.NewController(t)
 			defer mCtrl.Finish()
 			storage := mocks.NewMockStorage(mCtrl)
@@ -269,12 +360,16 @@ func TestBankingSvcSendPayment(t *testing.T) {
 			storage.EXPECT().GetAccountForUpdate(gomock.Any(), &from).Return(nil)
 			storage.EXPECT().GetAccountForUpdate(gomock.Any(), &to).Return(nil)
 			storage.EXPECT().CreateTransaction(gomock.Any()).Return(entities.Transaction{}, nil)
-			storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(ErrDB)
+			storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(nil)
+			storage.EXPECT().SendPayment(gomock.Any(), gomock.Any()).Return(nil)
+			storage.EXPECT().SetAccountBalance(gomock.Any(), gomock.Any()).Return(nil)
+			storage.EXPECT().SetAccountBalance(gomock.Any(), gomock.Any()).Return(nil)
+			storage.EXPECT().CommitTx(gomock.Any()).Return(ErrDB)
 			storage.EXPECT().RollbackTx(gomock.Any()).Return(nil)
 
 			err := banking.NewService(storage).SendPayment(ctx, from, to, amount)
 			require.Error(t, err)
-			assert.Contains(t, err.Error(), "can't insert outgoing payment")
+			assert.Contains(t, err.Error(), "transaction commit failed")
 		})
 	})
 }
