@@ -12,7 +12,7 @@ In order to obtain access to the whole application functionality you're recommen
 - __Payload__: Nested JSON object containing account name
 - __Response__: JSON struct of created account
 - __Exception__: `400` on request with blank account name
-- __Exception__: `500` on request with duplicated account name
+- __Exception__: `500` on database level errors
 
 __Examples__:
 ```bash
@@ -22,15 +22,9 @@ __Examples__:
 ```
 
 ```bash
-> curl -v -X POST localhost:8090/api/v1/accounts -d '{"account": {"name": "john_doe"}}'
-< HTTP/1.1 500 Internal Server Error
-{"error":"failed to create new account in database: can't create new account: pq: duplicate key value violates unique constraint \"accounts_name_key\""}
-```
-
-```bash
 > curl -v -X POST localhost:8090/api/v1/accounts -d '{"account": {"name": ""}}'
 < HTTP/1.1 400 Bad Request
-< {"error":"bad request"}
+< {"error":"account name should be present"}
 ```
 
 __Note__: account name is the only attribute consumed by Account creation API. Balance and currency are automatically set up to `0` and `usd` respectively.
@@ -52,20 +46,33 @@ __Examples__:
 
 ### Create payment
 
-- __Method__: `GET`
+- __Method__: `POST`
 - __URL__: `/api/v1/payments`
 - __Payload__: Nested JSON object containing sender/receiver names and amount
 - __Response__: Blank JSON
 - __Exception__: `400` on request with blank sender/receiver names
 - __Exception__: `400` on payment amount less or equal to zero
-- __Exception__: `500` on payment which sets user balance below zero
-- __Exception__: `500` when sender and receiver is the same person
+- __Exception__: `400` on payment which sets user balance below zero
+- __Exception__: `400` when sender and receiver is the same person
+- __Exception__: `500` on database level errors
 
 __Examples__:
 ```bash
 > curl -v -X POST localhost:8090/api/v1/payments -d '{"payment" : {"from": "SYSTEM", "to": "john_doe", "amount": 10.12}}'
 < HTTP/1.1 200 OK
 < {}
+```
+
+```bash
+> curl -v -X POST localhost:8090/api/v1/payments -d '{"payment" : {"from": "", "to": "SYSTEM", "amount": 15.94}}'
+< HTTP/1.1 400 Bad Request
+{"error":"both from/to names should be filled up"}
+```
+
+```bash
+> curl -v -X POST localhost:8090/api/v1/payments -d '{"payment" : {"from": "bob123", "to": "SYSTEM", "amount": 9999}}'
+< HTTP/1.1 400 Bad Request
+< {"error":"sender account has insufficient funds"}
 ```
 
 ### Get payments list

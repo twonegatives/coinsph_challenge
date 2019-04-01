@@ -92,20 +92,6 @@ func TestCreateAccountRoute(t *testing.T) {
 		assert.Equal(t, expectedBody, actualBody)
 	})
 
-	t.Run("returns 400 on bad input", func(t *testing.T) {
-		dep, cleanUp := setupServer(t)
-		client := dep.TestServer.Client()
-		defer cleanUp()
-
-		requestBody := `{"account": {}}`
-		resp, err := client.Post(dep.TestServer.URL+"/accounts", "application/json", strings.NewReader(requestBody))
-		defer resp.Body.Close()
-		require.NoError(t, err)
-
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		assert.Equal(t, "application/json; charset=utf-8", resp.Header.Get("Content-Type"))
-	})
-
 	t.Run("returns 500 on server error", func(t *testing.T) {
 		dep, cleanUp := setupServer(t)
 		client := dep.TestServer.Client()
@@ -254,20 +240,6 @@ func TestSendPaymentRoute(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 		assert.Equal(t, "application/json; charset=utf-8", resp.Header.Get("Content-Type"))
 		assert.Equal(t, map[string]interface{}{}, actualBody)
-	})
-
-	t.Run("returns 400 on bad input", func(t *testing.T) {
-		dep, cleanUp := setupServer(t)
-		client := dep.TestServer.Client()
-		defer cleanUp()
-
-		requestBody := `{}`
-		resp, err := client.Post(dep.TestServer.URL+"/payments", "application/json", strings.NewReader(requestBody))
-		defer resp.Body.Close()
-		require.NoError(t, err)
-
-		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
-		assert.Equal(t, "application/json; charset=utf-8", resp.Header.Get("Content-Type"))
 	})
 
 	t.Run("returns 500 on server error", func(t *testing.T) {

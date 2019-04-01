@@ -123,14 +123,24 @@ func MakeHandler(svc BankingService, l log.Logger) http.Handler {
 
 func errorEncoder(_ context.Context, err error, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	var exposedErrDescription string
+
 	switch errors.Cause(err) {
-	case errBadRequest:
+	case errAmountShouldBePositive,
+		errNamesNotPresent,
+		errSenderIsReceiver,
+		errInsufficientFunds,
+		errAccountNameBlank:
+
 		w.WriteHeader(http.StatusBadRequest)
+		exposedErrDescription = err.Error()
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
+		exposedErrDescription = "internal server error"
 	}
 
-	encodeErr := json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+	encodeErr := json.NewEncoder(w).Encode(map[string]string{"error": exposedErrDescription})
 	if encodeErr != nil {
 		panic(fmt.Sprintf("Can't encode error, %s. Original error: %s", encodeErr, err))
 	}

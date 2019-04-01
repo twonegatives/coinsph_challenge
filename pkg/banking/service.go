@@ -11,6 +11,14 @@ import (
 	"github.com/twonegatives/coinsph_challenge/pkg/storage"
 )
 
+var (
+	errAmountShouldBePositive = errors.New("amount transferred should be a positive number")
+	errNamesNotPresent        = errors.New("both from/to names should be filled up")
+	errSenderIsReceiver       = errors.New("can't transfer funds to the same account")
+	errInsufficientFunds      = errors.New("sender account has insufficient funds")
+	errAccountNameBlank       = errors.New("account name should be present")
+)
+
 //go:generate mockgen -source=service.go -destination ../mocks/mock_banking_service.go -package mocks
 
 // BankingService is an abstraction which contains declarations of methods
@@ -37,6 +45,9 @@ func NewService(s storage.Storage) *Service {
 // Tries to create a new account with this name. Returns Account entity with
 // all the attributes set up on success.
 func (svc *Service) CreateAccount(ctx context.Context, accountName string) (entities.Account, error) {
+	if accountName == "" {
+		return entities.Account{}, errAccountNameBlank
+	}
 	account, err := svc.store.CreateAccount(ctx, accountName)
 	return account, errors.Wrap(err, "failed to create new account in database")
 }
@@ -60,9 +71,16 @@ func (svc *Service) GetPaymentsList(ctx context.Context) ([]entities.Payment, er
 // - either 'from' or 'to' account is not present in system
 // - there is an existing mismatch between Account's balance and his/her payments (checked by db trigger)
 func (svc *Service) SendPayment(ctx context.Context, from entities.Account, to entities.Account, amount decimal.Decimal) error {
-	// TODO: consider wrapping errors to something application-specific
+	if amount.LessThanOrEqual(decimal.NewFromFloat(0)) {
+		return errAmountShouldBePositive
+	}
+
+	if from.Name == "" || to.Name == "" {
+		return errNamesNotPresent
+	}
+
 	if from == to {
-		return errors.New("can't transfer funds to the same account")
+		return errSenderIsReceiver
 	}
 
 	txStorage, err := svc.store.BeginTx(ctx, nil)
@@ -83,7 +101,7 @@ func (svc *Service) SendPayment(ctx context.Context, from entities.Account, to e
 	}
 
 	if from.Balance.LessThan(amount) && !from.MayGoBelowZero() {
-		return errors.New("sender account has insufficient funds")
+		return errInsufficientFunds
 	}
 
 	transaction, err := txStorage.CreateTransaction(ctx)
