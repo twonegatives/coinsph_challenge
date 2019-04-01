@@ -110,6 +110,10 @@ docker run -it --rm --name coinsph-running-app -p 4000:80 --env DB="postgres://D
 Please note that database creation and migration are left out of `Dockerfile` scope and should be implemented separately.
 Either `docker-compose`, `kubernetes` or a manual `docker run` should do the trick.
 Database migration script is accessible at [bin/migrate](https://github.com/twonegatives/coinsph_challenge/blob/master/bin/migrate).
+Please pay attention to `ENV` variables listed at [dbconfig.yml](https://github.com/twonegatives/coinsph_challenge/blob/master/dbconfig.yml) and `APP_ENV`.
+```bash
+docker run --env APP_ENV=stage --env STAGE_DB_USER_NAME=twonegatives --env STAGE_DB_HOST=docker.for.mac.host.internal:5432 --env STAGE_DB_NAME=coinsph -it coinsph-challenge /bin/migrate
+```
 
 ## Suggestions? Bugs? Contributions?
 If you've got a question, feature suggestion or found a bug please add an [issue](https://github.com/twonegatives/coinsph_challenge/issues) on GitHub or fork the project and send a pull request.
