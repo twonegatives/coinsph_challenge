@@ -34,7 +34,10 @@ Any bookkeeeping system has a number of possible data integrity issues, to name 
 In order to address the mentioned issues wallet makes use of the following techniques:
 1. Database transactions and row locks to overcome concurrent use cases;
 2. Database constraints to guarantee the correctness of unique and non-zero fields;
-3. Database `check` triggers on insert/update to guarantee business rules fulfillment.
+3. Database `check` triggers (
+[#1](https://github.com/twonegatives/coinsph_challenge/blob/master/migrations/20190329162827-CreateTxTriggerFunction.sql),
+[#2](https://github.com/twonegatives/coinsph_challenge/blob/master/migrations/20190330002201-CreateAccountsTriggerFunctionn.sql)
+) on insert/update to guarantee business rules fulfillment.
 
 These arrangements provide a solid confidence in data integrity, though do not cover some nasty cases which may arise if someone makes changes using the db client directly on production servers.
 A complete bulletproof solution would require more restrictive trigger policies which was intentionally left out of the scope for this phase.
