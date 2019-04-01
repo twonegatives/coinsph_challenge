@@ -95,8 +95,8 @@ go test -v ./...
 A set of environment variables might be provided to alter the Waller behaviour:
 
 - `LISTEN` - `host:port` for server. Default: `:80`
-- `APP_ENV` - application environment. Default: `dev`
-- `DB` - database connection string. Default: `postgres://localhost/coinsph?sslmode=disable`
+- `APP_ENV` - application environment. Used by `sql-migrate` to pick according db configuration from `dbconf.yml` on migrations run. Default: `dev`
+- `DB` - database connection string. Application server connects to this database on startup. Default: `postgres://localhost/coinsph?sslmode=disable`
 - `SHUTDOWN_TIMEOUT` - timeout for gracefull server stop on exceptional cases (e.g. interruption). Default: `2s`
 
 ## Deployment
