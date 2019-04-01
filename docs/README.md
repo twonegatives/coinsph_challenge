@@ -13,7 +13,7 @@ Here is a list of requested user stories for the MVP phase:
 ## Design decisions
 ### Bookkeeping system type
 This wallet implementation uses a so-called [double-entry bookkeeeping system](https://en.wikipedia.org/wiki/Double-entry_bookkeeping_system).
-Each transaction from one account to another gets stored as two equal and oppositee payment entries (the `outgoing` for sender and `incoming` for receiver).
+Each transaction from one account to another gets stored as two equal and opposite payment entries (the `outgoing` for sender and `incoming` for receiver).
 With every transaction recorded as both a debit and a credit, the totals of each should always balance.
 In other words, a value difference between `outgoing` and `incoming` payments of the same transaction indicate an error.
 
